@@ -29,8 +29,10 @@ airfoil = Airfoil(name="airfoil",coords=coords)
 
 airfoil.set_analysis_params(
     Re=50000,
-    alpha_start=0,
-    M = 0.0 # Incompressible flow
+    alpha_start=-1,
+    M = 0.0, # Incompressible flow
+    alpha_end=3,
+    alpha_step=0.1
 )
 
 results = airfoil.run_analysis()

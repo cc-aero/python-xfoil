@@ -2,6 +2,7 @@ import math
 import os
 import subprocess
 import tempfile
+import concurrent.futures
 
 class Airfoil:
     """
@@ -37,7 +38,11 @@ class Airfoil:
         if name is not None:
             self.name = name
 
-    def set_analysis_params(self, Re: int,alpha_start: int, M: int = None,alpha_end: float = None, alpha_step:float = None):
+
+
+
+
+    def set_analysis_params(self, Re, alpha_start, M=None, alpha_end=None, alpha_step=None):
         """
         Set parameters for our simulation.
 
@@ -47,31 +52,33 @@ class Airfoil:
         :param alpha_end: Ending angle of attack for the simulation (Optional).
 
         """
-        self. Re = Re
-        self.M = M if M is not None else 0.0    # M will default to 0.0 if not provided
-
-
-        if alpha_end is None and alpha_step is None:
-            # Single AOA simulation
-            self.alpha = [alpha_start]
-        elif alpha_end is not None and alpha_step is not None:
-            # Multi-angle simulation (generate a list from alpha_start to alpha_end)
-            # Make sure we always move in the correct direction (up or down).
-            num_steps = int(abs(alpha_end - alpha_start) / alpha_step) + 1
-
-            if alpha_end > alpha_start:
-                self.alpha = [alpha_start + i * alpha_step for i in range(num_steps)]
-            else:
-                self.alpha = [alpha_start - i * alpha_step for i in range(num_steps)]
+        if isinstance(Re, list) and isinstance(alpha_start, list) and isinstance(M, list):
+            self.Re_list = Re
+            self.alpha_start_list = alpha_start
+            self.M_list = M
+            self.alpha_end = alpha_end
+            self.alpha_step = alpha_step
         else:
-            # If alpha_end or alpha_step is given without the other, it's ambiguous
-            raise ValueError(
-            "For multiple AoAs, both alpha_end and alpha_step must be provided. "
-            "For a single AoA, omit both alpha_end and alpha_step.")
+            self.Re = Re
+            self.alpha_start = alpha_start
+            self.M = M if M is not None else 0.0
+            self.alpha_end = alpha_end
+            self.alpha_step = alpha_step
 
-        self.alpha_start = alpha_start
-        self.alpha_end = alpha_end
-        self.alpha_step = alpha_step
+            if alpha_end is None and alpha_step is None:
+                # Single AOA simulation
+                self.alpha = [alpha_start]
+            elif alpha_end is not None and alpha_step is not None:
+                # Multi-angle simulation (generate a list from alpha_start to alpha_end)
+                # Make sure we always move in the correct direction (up or down).
+                num_steps = int(abs(alpha_end - alpha_start) / alpha_step) + 1
+                if alpha_end > alpha_start:
+                    self.alpha = [alpha_start + i * alpha_step for i in range(num_steps)]
+                else:
+                    self.alpha = [alpha_start - i * alpha_step for i in range(num_steps)]
+            else:
+                # If alpha_end or alpha_step is given without the other, it's ambiguous
+                raise ValueError("For multiple AoAs, both alpha_end and alpha_step must be provided. For a single AoA, omit both alpha_end and alpha_step.")
 
     def run_analysis(self, iters: int = 100):
         """
@@ -116,6 +123,22 @@ class Airfoil:
                                    "Ensure that xfoil.exe is in the same directory as this script!")
             results = self._parse_xfoil_output(xfoil_output_file)
             return results
+
+
+    def _run_single_analysis(self, Re, alpha_start, M, iters):
+        self.set_analysis_params(Re, alpha_start, M, self.alpha_end, self.alpha_step)
+        return self.run_analysis(iters)
+    def run_multithreaded_analysis(self, iters=100):
+        if not hasattr(self, 'Re_list') or not hasattr(self, 'alpha_start_list') or not hasattr(self, 'M_list'):
+            raise AttributeError("Analysis parameters (Re, alpha_start, M) must be set as lists before calling run_multithreaded_analysis.")
+
+        results = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(self._run_single_analysis, Re, alpha_start, M, iters) for Re, alpha_start, M in zip(self.Re_list, self.alpha_start_list, self.M_list)]
+            for future in concurrent.futures.as_completed(futures):
+                results.append(future.result())
+        return results
+
 
     def _write_airfoil_file(self, file_path: str):
         """

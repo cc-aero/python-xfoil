@@ -1,12 +1,13 @@
 # PythonXfoil
 
-PythonXfoil is a Python module that provides an interface to run aerodynamic analyses using XFOIL. It allows users to define airfoil geometries, set analysis parameters, and execute XFOIL simulations programmatically.
+PythonXfoil is a Python module that provides an interface to natively and intuitively run concurrent aerodynamic analyses using XFOIL. It allows users to define airfoil geometries, set analysis parameters, and execute XFOIL simulations programmatically.
 Its focus is to provide an intuitive and easy-to-use alternative to similar modules.
 
 **This project is still a WIP (Work-In-Progress)**
 
 ## Features
 
+- Automatic Multithreading for multiple concurrent analyses
 - Define airfoil geometries using custom coordinates.
 - Set analysis parameters such as Reynolds number, Mach number, and angle of attack.
 - Run XFOIL simulations in batch mode.
@@ -61,7 +62,42 @@ results = airfoil.run_analysis()
 # Print the results
 print(results)
 ```
+This example script does the same, but using the concurrent analysis feature.
+```python
 
+# example_multithreaded.py
+
+from pythonxfoil import Airfoil
+from pythonxfoil import Utils
+
+# Load airfoil coordinates from a .dat file
+with open("example-airfoils/naca2412.dat") as airfoil_file:
+    airfoil_data = airfoil_file.read()
+
+# Parse the coordinates
+coords = Utils.parse_coords(airfoil_data)
+
+# Create an Airfoil object
+airfoil = Airfoil(name="NACA 2412", coords=coords)
+
+# Set analysis parameters with lists of values
+Re_list = [30000, 100000, 120000]
+alpha_start_list = [1, 1, 1]
+M_list = [0.5, 0.3, 0.1]
+
+airfoil.set_analysis_params(
+    Re=Re_list,
+    alpha_start=alpha_start_list,
+    M=M_list,
+)
+
+# Run the multithreaded XFOIL analysis
+results = airfoil.run_multithreaded_analysis()
+
+# Print the results
+for result in results:
+    print(result)
+```
 ### Module Overview
 
 #### `pythonxfoil.py`
@@ -73,6 +109,7 @@ This module contains the `Airfoil` class and utility functions for running XFOIL
 - **Initialization**: Create an airfoil object with a name and coordinates.
 - **Set Analysis Parameters**: Define Reynolds number, Mach number, and angle of attack range.
 - **Run Analysis**: Execute the XFOIL analysis and retrieve results.
+- **Run Multithreaded Analysis**: Execute multiple XFOIL analyses concurrently.
 
 #### `Utils` Class
 
